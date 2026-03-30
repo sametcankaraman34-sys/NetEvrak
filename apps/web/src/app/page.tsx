@@ -13,7 +13,7 @@ type TemplateDocumentOption = {
 type ChecklistItem = {
   code: string;
   label: string;
-  status: "PASS" | "MISSING" | "NEEDS_REVIEW";
+  status: "PASS" | "MISSING" | "NEEDS_REVIEW" | "FAIL";
   reason: string;
 };
 
@@ -133,6 +133,7 @@ export default function HomePage() {
       setChecklistSummary({
         case: payload.case,
         template: payload.template,
+        profile: payload.profile,
         requiredDocuments: payload.requiredDocuments,
         uploadedCount: payload.uploadedCount,
       });
@@ -346,7 +347,9 @@ export default function HomePage() {
                           ? "Tamam"
                           : item.status === "NEEDS_REVIEW"
                             ? "Dogrulama Gerekli"
-                            : "Eksik"}
+                            : item.status === "FAIL"
+                              ? "Hatali"
+                              : "Eksik"}
                       </span>
                     </div>
                   ))}
@@ -378,7 +381,7 @@ export default function HomePage() {
           <div>
             <div className="fw-semibold">Faz Durumu</div>
             <div className="small netevrak-muted">
-              Faz 0 (muhasebe matrisi), Faz 1 (teknik temel), Faz 2 (yukleme/siniflandirma), Faz 3 (ocr/extraction) ve Faz 4 (eksik belge motoru) MVP kapsaminda aktif.
+              Faz 0 (muhasebe matrisi), Faz 1 (teknik temel), Faz 2 (yukleme/siniflandirma), Faz 3 (ocr/extraction), Faz 4 (eksik belge motoru) ve Faz 5 (dogrulama kurallari) MVP kapsaminda aktif.
             </div>
           </div>
           <div className="d-flex gap-2">
@@ -387,6 +390,7 @@ export default function HomePage() {
             <span className="badge text-bg-success rounded-pill">Faz 2 - Tamam</span>
             <span className="badge text-bg-success rounded-pill">Faz 3 - Tamam</span>
             <span className="badge text-bg-success rounded-pill">Faz 4 - Tamam</span>
+            <span className="badge text-bg-success rounded-pill">Faz 5 - Tamam</span>
           </div>
         </div>
       </div>

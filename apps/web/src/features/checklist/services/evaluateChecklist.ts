@@ -3,7 +3,7 @@ import type {
   DocumentRequirement,
 } from "@/lib/rules/loadAccountingBasicTemplate";
 
-type ChecklistStatus = "PASS" | "MISSING" | "NEEDS_REVIEW";
+type ChecklistStatus = "PASS" | "MISSING" | "NEEDS_REVIEW" | "FAIL";
 
 type DocumentInput = {
   id: string;
@@ -58,6 +58,28 @@ export function evaluateChecklist(input: {
   const requiredDocuments = requirements.map((req) =>
     evaluateRequirement(req, docsByType.get(req.code) ?? [], extractionByDocId)
   );
+
+  const companyNames = collectFieldValues(input.documents, extractionByDocId, "company_name");
+  const personNames = collectFieldValues(input.documents, extractionByDocId, "person_name");
+  const authorizedNames = collectFieldValues(
+    input.documents,
+    extractionByDocId,
+    "authorized_person"
+  );
+  const hasCompanyMismatch = companyNames.size > 1;
+  const hasPersonAuthorizedMismatch =
+    personNames.size > 0 && authorizedNames.size > 0 && !hasIntersection(personNames, authorizedNames);
+
+  for (const item of requiredDocuments) {
+    if (item.status === "PASS" && hasCompanyMismatch) {
+      item.status = "NEEDS_REVIEW";
+      item.reason = "Sirket unvani belgeler arasinda tutarsiz";
+    }
+    if (item.status === "PASS" && hasPersonAuthorizedMismatch) {
+      item.status = "NEEDS_REVIEW";
+      item.reason = "Yetkili kisi ve kimlik bilgisi tutarsiz";
+    }
+  }
 
   return {
     profileCode: profile.code,
@@ -129,7 +151,7 @@ function evaluateRequirement(
       return {
         code: requirement.code,
         label: requirement.label,
-        status: "NEEDS_REVIEW",
+        status: "FAIL",
         reason: `Alan eksik: ${fieldKey}`,
       };
     }
@@ -141,6 +163,24 @@ function evaluateRequirement(
         reason: `Dogrulama gerekli: ${fieldKey}`,
       };
     }
+
+    const semanticCheck = validateSemanticField(fieldKey, field.normalizedValue);
+    if (semanticCheck === "FAIL") {
+      return {
+        code: requirement.code,
+        label: requirement.label,
+        status: "FAIL",
+        reason: `Gecersiz format: ${fieldKey}`,
+      };
+    }
+    if (semanticCheck === "NEEDS_REVIEW") {
+      return {
+        code: requirement.code,
+        label: requirement.label,
+        status: "NEEDS_REVIEW",
+        reason: `Kontrol gerekli: ${fieldKey}`,
+      };
+    }
   }
 
   return {
@@ -149,5 +189,54 @@ function evaluateRequirement(
     status: "PASS",
     reason: "Belge ve zorunlu alanlar uygun",
   };
+}
+
+function validateSemanticField(
+  fieldKey: string,
+  normalizedValue: string
+): "PASS" | "NEEDS_REVIEW" | "FAIL" {
+  if (fieldKey === "tax_number") {
+    return /^\d{10}$/.test(normalizedValue) ? "PASS" : "FAIL";
+  }
+  if (fieldKey === "identity_number") {
+    return /^\d{11}$/.test(normalizedValue) ? "PASS" : "FAIL";
+  }
+  if (fieldKey === "valid_until") {
+    const date = new Date(normalizedValue);
+    if (Number.isNaN(date.getTime())) return "FAIL";
+    return date.getTime() >= Date.now() ? "PASS" : "FAIL";
+  }
+  if (fieldKey === "period") {
+    const match = normalizedValue.match(/^(\d{4})/);
+    if (!match) return "NEEDS_REVIEW";
+    const year = Number(match[1]);
+    const currentYear = new Date().getFullYear();
+    return year >= currentYear - 1 ? "PASS" : "NEEDS_REVIEW";
+  }
+  return "PASS";
+}
+
+function collectFieldValues(
+  documents: DocumentInput[],
+  extractionByDocId: Map<string, ExtractionInput>,
+  fieldKey: string
+): Set<string> {
+  const values = new Set<string>();
+  for (const doc of documents) {
+    const extraction = extractionByDocId.get(doc.id);
+    if (!extraction) continue;
+    const field = extraction.fields.find((f) => f.fieldKey === fieldKey);
+    if (field && field.normalizedValue.trim()) {
+      values.add(field.normalizedValue.trim().toLowerCase());
+    }
+  }
+  return values;
+}
+
+function hasIntersection(a: Set<string>, b: Set<string>): boolean {
+  for (const value of a) {
+    if (b.has(value)) return true;
+  }
+  return false;
 }
 
