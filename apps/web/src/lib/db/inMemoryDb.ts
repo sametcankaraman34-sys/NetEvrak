@@ -17,9 +17,32 @@ type InMemoryDocument = {
   status: "UPLOADED" | "PROCESSING" | "EXTRACTED" | "FAILED";
 };
 
+type InMemoryExtractedField = {
+  id: string;
+  fieldKey: string;
+  fieldLabel: string;
+  fieldValue: string;
+  normalizedValue: string;
+  confidence: number;
+  isRequired: boolean;
+  isValid: boolean;
+  validationMessage: string;
+};
+
+type InMemoryExtractionResult = {
+  id: string;
+  documentId: string;
+  provider: string;
+  rawResponseJson: unknown;
+  confidenceAvg: number;
+  processedAt: string;
+  extractedFields: InMemoryExtractedField[];
+};
+
 type InMemoryStore = {
   cases: Map<string, InMemoryCase>;
   documents: Map<string, InMemoryDocument>;
+  extractionResults: Map<string, InMemoryExtractionResult>;
 };
 
 const globalForDb = globalThis as unknown as {
@@ -31,6 +54,7 @@ function getStore(): InMemoryStore {
     globalForDb.__netEvrakInMemoryStore = {
       cases: new Map(),
       documents: new Map(),
+      extractionResults: new Map(),
     };
   }
 
@@ -96,5 +120,69 @@ export function setDocumentStatusInMemory(
   const doc = store.documents.get(documentId);
   if (!doc) return;
   doc.status = status;
+}
+
+export function getExtractionResultByDocumentIdInMemory(
+  documentId: string
+): InMemoryExtractionResult | null {
+  const store = getStore();
+  return (
+    [...store.extractionResults.values()].find((r) => r.documentId === documentId) ??
+    null
+  );
+}
+
+export function upsertExtractionResultInMemory(input: {
+  documentId: string;
+  provider: string;
+  rawResponseJson: unknown;
+  confidenceAvg: number;
+  extractedFields: Omit<InMemoryExtractedField, "id">[];
+}): InMemoryExtractionResult {
+  const store = getStore();
+  const existing = getExtractionResultByDocumentIdInMemory(input.documentId);
+  const resultId = existing?.id ?? randomUUID();
+  const mappedFields: InMemoryExtractedField[] = input.extractedFields.map((f) => ({
+    id: randomUUID(),
+    ...f,
+  }));
+
+  const result: InMemoryExtractionResult = {
+    id: resultId,
+    documentId: input.documentId,
+    provider: input.provider,
+    rawResponseJson: input.rawResponseJson,
+    confidenceAvg: input.confidenceAvg,
+    processedAt: new Date().toISOString(),
+    extractedFields: mappedFields,
+  };
+
+  store.extractionResults.set(resultId, result);
+  return result;
+}
+
+export function updateExtractedFieldInMemory(input: {
+  documentId: string;
+  fieldKey: string;
+  fieldValue: string;
+}): InMemoryExtractionResult | null {
+  const store = getStore();
+  const existing = getExtractionResultByDocumentIdInMemory(input.documentId);
+  if (!existing) return null;
+
+  const idx = existing.extractedFields.findIndex((f) => f.fieldKey === input.fieldKey);
+  if (idx === -1) return null;
+
+  existing.extractedFields[idx] = {
+    ...existing.extractedFields[idx],
+    fieldValue: input.fieldValue,
+    normalizedValue: input.fieldValue.trim(),
+    confidence: Math.min(existing.extractedFields[idx].confidence, 0.99),
+    isValid: input.fieldValue.trim().length > 0,
+    validationMessage: input.fieldValue.trim().length > 0 ? "" : "Bos deger",
+  };
+
+  store.extractionResults.set(existing.id, existing);
+  return existing;
 }
 

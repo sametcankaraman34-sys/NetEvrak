@@ -34,6 +34,25 @@ type CaseDocument = {
   previewUrl: string;
 };
 
+type ExtractedField = {
+  id: string;
+  fieldKey: string;
+  fieldLabel: string;
+  fieldValue: string;
+  normalizedValue: string;
+  confidence: number;
+  isRequired: boolean;
+  isValid: boolean;
+  validationMessage: string;
+};
+
+type ExtractionResult = {
+  id: string;
+  provider: string;
+  confidenceAvg: number;
+  extractedFields: ExtractedField[];
+};
+
 export default function HomePage() {
   const [caseId, setCaseId] = useState("");
   const [documentType, setDocumentType] = useState("");
@@ -45,6 +64,9 @@ export default function HomePage() {
   const [checklistSummary, setChecklistSummary] =
     useState<ChecklistSummary | null>(null);
   const [documents, setDocuments] = useState<CaseDocument[]>([]);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string>("");
+  const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
+  const [savingFieldKey, setSavingFieldKey] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadTemplate() {
@@ -132,6 +154,45 @@ export default function HomePage() {
       setDocuments(payload.documents);
     } catch {
       setDocuments([]);
+    }
+  }
+
+  async function loadExtraction(documentId: string) {
+    try {
+      const res = await fetch(`/api/documents/${encodeURIComponent(documentId)}/fields`);
+      if (!res.ok) {
+        setExtraction(null);
+        return;
+      }
+      const data = (await res.json()) as { ok: boolean; extraction: ExtractionResult };
+      if (!data.ok) {
+        setExtraction(null);
+        return;
+      }
+      setExtraction(data.extraction);
+    } catch {
+      setExtraction(null);
+    }
+  }
+
+  async function updateField(fieldKey: string, fieldValue: string) {
+    if (!selectedDocumentId) return;
+    setSavingFieldKey(fieldKey);
+    try {
+      const res = await fetch(
+        `/api/documents/${encodeURIComponent(selectedDocumentId)}/fields`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ fieldKey, fieldValue }),
+        }
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as { ok: boolean; extraction: ExtractionResult };
+      if (!data.ok) return;
+      setExtraction(data.extraction);
+    } finally {
+      setSavingFieldKey(null);
     }
   }
 
@@ -301,13 +362,14 @@ export default function HomePage() {
           <div>
             <div className="fw-semibold">Faz Durumu</div>
             <div className="small netevrak-muted">
-              Faz 0 (muhasebe matrisi), Faz 1 (teknik temel) ve Faz 2 (yukleme/siniflandirma) MVP kapsaminda aktif.
+              Faz 0 (muhasebe matrisi), Faz 1 (teknik temel), Faz 2 (yukleme/siniflandirma) ve Faz 3 (ocr/extraction) MVP kapsaminda aktif.
             </div>
           </div>
           <div className="d-flex gap-2">
             <span className="badge text-bg-success rounded-pill">Faz 0 - Tamam</span>
             <span className="badge text-bg-success rounded-pill">Faz 1 - Tamam</span>
             <span className="badge text-bg-success rounded-pill">Faz 2 - Tamam</span>
+            <span className="badge text-bg-success rounded-pill">Faz 3 - Tamam</span>
           </div>
         </div>
       </div>
@@ -540,6 +602,91 @@ export default function HomePage() {
                           >
                             Ekranda Ac
                           </a>
+                          <button
+                            type="button"
+                            className="btn btn-link btn-sm ms-2 p-0"
+                            onClick={() => {
+                              setSelectedDocumentId(doc.id);
+                              void loadExtraction(doc.id);
+                            }}
+                          >
+                            Alanlar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <hr className="my-4" />
+
+            <div className="d-flex align-items-center justify-content-between mb-2">
+              <div className="fw-semibold">Manuel Alan Duzeltme</div>
+              {extraction ? (
+                <span className="badge rounded-pill text-bg-info">
+                  OCR: {extraction.provider} | Ortalama Guven: {(extraction.confidenceAvg * 100).toFixed(0)}%
+                </span>
+              ) : (
+                <span className="badge rounded-pill text-bg-secondary">Belge secilmedi</span>
+              )}
+            </div>
+
+            {!selectedDocumentId ? (
+              <div className="small netevrak-muted">
+                Belge listesinden "Alanlar" aksiyonunu secerek extraction alanlarini goruntuleyin.
+              </div>
+            ) : !extraction ? (
+              <div className="small netevrak-muted">
+                Bu belge icin extraction sonucu bulunamadi. Kuyruk isleminden sonra tekrar deneyin.
+              </div>
+            ) : extraction.extractedFields.length === 0 ? (
+              <div className="small netevrak-muted">Bu belge tipinde maplenen alan yok.</div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Alan</th>
+                      <th>Deger</th>
+                      <th>Guven</th>
+                      <th>Durum</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {extraction.extractedFields.map((field) => (
+                      <tr key={field.id}>
+                        <td>
+                          {field.fieldLabel}
+                          {field.isRequired ? (
+                            <span className="badge text-bg-light ms-2">Zorunlu</span>
+                          ) : null}
+                        </td>
+                        <td style={{ minWidth: 240 }}>
+                          <input
+                            className="form-control form-control-sm"
+                            defaultValue={field.fieldValue}
+                            onBlur={(e) => {
+                              const nextValue = e.target.value;
+                              if (nextValue === field.fieldValue) return;
+                              void updateField(field.fieldKey, nextValue);
+                            }}
+                          />
+                        </td>
+                        <td>{(field.confidence * 100).toFixed(0)}%</td>
+                        <td>
+                          <span
+                            className={`badge rounded-pill ${
+                              field.isValid ? "text-bg-success" : "text-bg-danger"
+                            }`}
+                          >
+                            {field.isValid ? "Valid" : "Hata"}
+                          </span>
+                        </td>
+                        <td className="small netevrak-muted">
+                          {savingFieldKey === field.fieldKey ? "Kaydediliyor..." : ""}
                         </td>
                       </tr>
                     ))}

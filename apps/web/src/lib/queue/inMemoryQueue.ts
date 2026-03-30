@@ -1,6 +1,12 @@
 import { getPrismaOrNull } from "../db/prisma";
 import { logger } from "../logger";
-import { setDocumentStatusInMemory } from "../db/inMemoryDb";
+import {
+  getDocumentByIdInMemory,
+  getExtractionResultByDocumentIdInMemory,
+  setDocumentStatusInMemory,
+  upsertExtractionResultInMemory,
+} from "../db/inMemoryDb";
+import { extractDocumentFields } from "@/features/extraction/services/extractDocumentFields";
 
 type Job =
   | {
@@ -58,7 +64,29 @@ export class InMemoryQueue {
 
     if (!prisma) {
       setDocumentStatusInMemory(documentId, "PROCESSING");
-      // Local demo: extraction result saklamıyoruz; sadece statüyü ileri alıyoruz.
+      const doc = getDocumentByIdInMemory(documentId);
+      if (doc && !getExtractionResultByDocumentIdInMemory(documentId)) {
+        const extracted = extractDocumentFields({
+          documentType: doc.documentType,
+          fileName: doc.fileName,
+        });
+        upsertExtractionResultInMemory({
+          documentId,
+          provider: extracted.provider,
+          rawResponseJson: extracted.rawResponseJson,
+          confidenceAvg: extracted.confidenceAvg,
+          extractedFields: extracted.extractedFields.map((f) => ({
+            fieldKey: f.fieldKey,
+            fieldLabel: f.fieldLabel,
+            fieldValue: f.fieldValue,
+            normalizedValue: f.normalizedValue,
+            confidence: f.confidence,
+            isRequired: f.isRequired,
+            isValid: f.isValid,
+            validationMessage: f.validationMessage,
+          })),
+        });
+      }
       setDocumentStatusInMemory(documentId, "EXTRACTED");
       return;
     }
@@ -81,14 +109,24 @@ export class InMemoryQueue {
       return;
     }
 
+    const doc = await prisma.document.findUnique({
+      where: { id: documentId },
+      select: { fileName: true, documentType: true },
+    });
+
+    const extracted = extractDocumentFields({
+      documentType: doc?.documentType ?? "unknown",
+      fileName: doc?.fileName ?? "unknown",
+    });
+
     await prisma.extractionResult.create({
       data: {
         documentId,
-        provider: "in_memory_stub",
-        rawResponseJson: {},
-        confidenceAvg: 0,
+        provider: extracted.provider,
+        rawResponseJson: extracted.rawResponseJson as object,
+        confidenceAvg: extracted.confidenceAvg,
         extractedFields: {
-          create: [],
+          create: extracted.extractedFields,
         },
       },
     });
