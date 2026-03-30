@@ -301,12 +301,13 @@ export default function HomePage() {
           <div>
             <div className="fw-semibold">Faz Durumu</div>
             <div className="small netevrak-muted">
-              Faz 0 (muhasebe matrisi) ve Faz 1 (teknik temel) MVP kapsaminda aktif.
+              Faz 0 (muhasebe matrisi), Faz 1 (teknik temel) ve Faz 2 (yukleme/siniflandirma) MVP kapsaminda aktif.
             </div>
           </div>
           <div className="d-flex gap-2">
             <span className="badge text-bg-success rounded-pill">Faz 0 - Tamam</span>
             <span className="badge text-bg-success rounded-pill">Faz 1 - Tamam</span>
+            <span className="badge text-bg-success rounded-pill">Faz 2 - Tamam</span>
           </div>
         </div>
       </div>
