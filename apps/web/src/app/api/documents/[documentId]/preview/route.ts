@@ -5,6 +5,7 @@ import { getPrismaOrNull } from "@/lib/db/prisma";
 import { getDocumentByIdInMemory } from "@/lib/db/inMemoryDb";
 import { getLocalAbsolutePathFromStorageKey } from "@/lib/storage/localStorage";
 import { captureError } from "@/lib/monitoring";
+import { createSupabaseSignedUrl } from "@/lib/storage/supabaseStorage";
 
 export async function GET(
   _req: Request,
@@ -36,6 +37,12 @@ export async function GET(
       storageKey = doc.storageKey;
       mimeType = doc.mimeType;
       fileName = doc.fileName;
+    }
+
+    const provider = process.env.STORAGE_PROVIDER ?? "supabase";
+    if (provider === "supabase") {
+      const signedUrl = await createSupabaseSignedUrl(storageKey);
+      return NextResponse.redirect(signedUrl, { status: 302 });
     }
 
     const absPath = getLocalAbsolutePathFromStorageKey(storageKey);
