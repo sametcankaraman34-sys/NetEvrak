@@ -59,6 +59,35 @@ type ExtractionResult = {
   extractedFields: ExtractedField[];
 };
 
+type CaseReport = {
+  case: { id: string; sector: string };
+  profileCode: string;
+  profileLabel: string;
+  summary: {
+    uploadedCount: number;
+    passCount: number;
+    missingCount: number;
+    reviewCount: number;
+    failCount: number;
+  };
+  missingDocuments: Array<{ code: string; label: string; reason: string }>;
+  fieldResults: Array<{
+    documentId: string;
+    documentType: string;
+    fieldKey: string;
+    fieldLabel: string;
+    fieldValue: string;
+    confidence: number;
+    isValid: boolean;
+  }>;
+  history: Array<{
+    happenedAt: string;
+    action: string;
+    entityType: "document" | "extraction";
+    entityId: string;
+  }>;
+};
+
 export default function HomePage() {
   const [caseId, setCaseId] = useState("");
   const [documentType, setDocumentType] = useState("");
@@ -74,6 +103,7 @@ export default function HomePage() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>("");
   const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
   const [savingFieldKey, setSavingFieldKey] = useState<string | null>(null);
+  const [report, setReport] = useState<CaseReport | null>(null);
 
   useEffect(() => {
     async function loadTemplate() {
@@ -113,10 +143,10 @@ export default function HomePage() {
     void loadTemplate();
   }, []);
 
-  async function loadChecklist(currentCaseId: string) {
+  async function loadChecklist(currentCaseId: string, profile = profileCode) {
     try {
       const res = await fetch(
-        `/api/cases/${encodeURIComponent(currentCaseId)}/checklist?profile=${encodeURIComponent(profileCode)}`
+        `/api/cases/${encodeURIComponent(currentCaseId)}/checklist?profile=${encodeURIComponent(profile)}`
       );
       if (!res.ok) {
         setChecklistSummary(null);
@@ -180,6 +210,26 @@ export default function HomePage() {
       setExtraction(data.extraction);
     } catch {
       setExtraction(null);
+    }
+  }
+
+  async function loadReport(currentCaseId: string, profile = profileCode) {
+    try {
+      const res = await fetch(
+        `/api/cases/${encodeURIComponent(currentCaseId)}/report?profile=${encodeURIComponent(profile)}`
+      );
+      if (!res.ok) {
+        setReport(null);
+        return;
+      }
+      const data = (await res.json()) as { ok: boolean; report: CaseReport };
+      if (!data.ok) {
+        setReport(null);
+        return;
+      }
+      setReport(data.report);
+    } catch {
+      setReport(null);
     }
   }
 
@@ -261,6 +311,7 @@ export default function HomePage() {
 
       await loadChecklist(trimmedCaseId);
       await loadDocuments(trimmedCaseId);
+      await loadReport(trimmedCaseId);
     } catch {
       setMessage({ type: "danger", text: "Sunucuya bağlanılamadı." });
     } finally {
@@ -274,7 +325,7 @@ export default function HomePage() {
     : 0;
 
   const passCount = checklistSummary
-    ? checklistSummary.requiredDocuments.length - missingCount
+    ? checklistSummary.requiredDocuments.filter((d) => d.status === "PASS").length
     : 0;
 
   const uploadProgress = loading
@@ -381,7 +432,7 @@ export default function HomePage() {
           <div>
             <div className="fw-semibold">Faz Durumu</div>
             <div className="small netevrak-muted">
-              Faz 0 (muhasebe matrisi), Faz 1 (teknik temel), Faz 2 (yukleme/siniflandirma), Faz 3 (ocr/extraction), Faz 4 (eksik belge motoru) ve Faz 5 (dogrulama kurallari) MVP kapsaminda aktif.
+              Faz 0 (muhasebe matrisi), Faz 1 (teknik temel), Faz 2 (yukleme/siniflandirma), Faz 3 (ocr/extraction), Faz 4 (eksik belge motoru), Faz 5 (dogrulama kurallari) ve Faz 6 (sonuc/export) MVP kapsaminda aktif.
             </div>
           </div>
           <div className="d-flex gap-2">
@@ -391,6 +442,7 @@ export default function HomePage() {
             <span className="badge text-bg-success rounded-pill">Faz 3 - Tamam</span>
             <span className="badge text-bg-success rounded-pill">Faz 4 - Tamam</span>
             <span className="badge text-bg-success rounded-pill">Faz 5 - Tamam</span>
+            <span className="badge text-bg-success rounded-pill">Faz 6 - Tamam</span>
           </div>
         </div>
       </div>
@@ -526,16 +578,8 @@ export default function HomePage() {
                       setProfileCode(next);
                       const id = caseId.trim();
                       if (id) {
-                        void fetch(
-                          `/api/cases/${encodeURIComponent(id)}/checklist?profile=${encodeURIComponent(next)}`
-                        )
-                          .then((res) => (res.ok ? res.json() : null))
-                          .then((payload) => {
-                            if (payload?.ok) {
-                              setChecklistSummary(payload as ChecklistSummary & { ok: boolean });
-                            }
-                          })
-                          .catch(() => undefined);
+                        void loadChecklist(id, next);
+                        void loadReport(id, next);
                       }
                     }}
                     disabled={loading}
@@ -742,6 +786,135 @@ export default function HomePage() {
                   </tbody>
                 </table>
               </div>
+            )}
+
+            <hr className="my-4" />
+
+            <div className="d-flex align-items-center justify-content-between mb-2">
+              <div className="fw-semibold">Sonuc ve Export</div>
+              <div className="d-flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary"
+                  disabled={!caseId.trim()}
+                  onClick={() => {
+                    const id = caseId.trim();
+                    if (!id) return;
+                    void loadReport(id);
+                  }}
+                >
+                  Raporu Yenile
+                </button>
+                <a
+                  className={`btn btn-sm btn-outline-success ${!caseId.trim() ? "disabled" : ""}`}
+                  href={
+                    caseId.trim()
+                      ? `/api/cases/${encodeURIComponent(caseId.trim())}/export/excel?profile=${encodeURIComponent(profileCode)}`
+                      : undefined
+                  }
+                >
+                  Excel Indir
+                </a>
+                <a
+                  className={`btn btn-sm btn-outline-danger ${!caseId.trim() ? "disabled" : ""}`}
+                  href={
+                    caseId.trim()
+                      ? `/api/cases/${encodeURIComponent(caseId.trim())}/export/pdf?profile=${encodeURIComponent(profileCode)}`
+                      : undefined
+                  }
+                >
+                  PDF Indir
+                </a>
+              </div>
+            </div>
+
+            {!report ? (
+              <div className="small netevrak-muted">
+                Case secip rapor yenileyin; ozet, eksik evrak, alan tablosu ve islem gecmisi gorunur.
+              </div>
+            ) : (
+              <>
+                <div className="row g-2 mb-3">
+                  <div className="col-6 col-md-3">
+                    <div className="status-list-item p-2">
+                      <div className="small netevrak-muted">PASS</div>
+                      <div className="fw-semibold">{report.summary.passCount}</div>
+                    </div>
+                  </div>
+                  <div className="col-6 col-md-3">
+                    <div className="status-list-item p-2">
+                      <div className="small netevrak-muted">REVIEW</div>
+                      <div className="fw-semibold">{report.summary.reviewCount}</div>
+                    </div>
+                  </div>
+                  <div className="col-6 col-md-3">
+                    <div className="status-list-item p-2">
+                      <div className="small netevrak-muted">FAIL</div>
+                      <div className="fw-semibold">{report.summary.failCount}</div>
+                    </div>
+                  </div>
+                  <div className="col-6 col-md-3">
+                    <div className="status-list-item p-2">
+                      <div className="small netevrak-muted">MISSING</div>
+                      <div className="fw-semibold">{report.summary.missingCount}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="small fw-semibold mb-1">Eksik Evrak Listesi</div>
+                {report.missingDocuments.length === 0 ? (
+                  <div className="small netevrak-muted mb-3">Eksik evrak yok.</div>
+                ) : (
+                  <ul className="small mb-3">
+                    {report.missingDocuments.map((m) => (
+                      <li key={m.code}>
+                        {m.label} - {m.reason}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="small fw-semibold mb-1">Alan Sonuc Tablosu</div>
+                {report.fieldResults.length === 0 ? (
+                  <div className="small netevrak-muted mb-3">Alan sonucu yok.</div>
+                ) : (
+                  <div className="table-responsive mb-3">
+                    <table className="table table-sm align-middle">
+                      <thead>
+                        <tr>
+                          <th>Belge Tipi</th>
+                          <th>Alan</th>
+                          <th>Deger</th>
+                          <th>Guven</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.fieldResults.slice(0, 10).map((f) => (
+                          <tr key={`${f.documentId}_${f.fieldKey}`}>
+                            <td>{f.documentType}</td>
+                            <td>{f.fieldLabel}</td>
+                            <td>{f.fieldValue}</td>
+                            <td>{(f.confidence * 100).toFixed(0)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div className="small fw-semibold mb-1">Islem Gecmisi</div>
+                {report.history.length === 0 ? (
+                  <div className="small netevrak-muted">Gecmis kaydi yok.</div>
+                ) : (
+                  <ul className="small mb-0">
+                    {report.history.slice(0, 8).map((h) => (
+                      <li key={`${h.entityId}_${h.happenedAt}`}>
+                        {new Date(h.happenedAt).toLocaleString("tr-TR")} - {h.action}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </div>
         </div>
