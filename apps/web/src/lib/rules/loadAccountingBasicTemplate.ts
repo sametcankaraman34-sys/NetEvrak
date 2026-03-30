@@ -14,11 +14,18 @@ export type DocumentRequirement = {
   rules: ChecklistRule[];
 };
 
+export type ChecklistRequirementProfile = {
+  code: string;
+  label: string;
+  requiredDocumentCodes: string[];
+};
+
 export type ChecklistTemplateConfig = {
   sector: string;
   templateName: string;
   version: number;
   documentRequirements: DocumentRequirement[];
+  requirementProfiles?: ChecklistRequirementProfile[];
 };
 
 export async function loadAccountingBasicTemplate(): Promise<ChecklistTemplateConfig> {

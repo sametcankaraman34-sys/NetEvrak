@@ -2,6 +2,30 @@
   "sector": "accounting",
   "templateName": "Accounting Basic",
   "version": 1,
+  "requirementProfiles": [
+    {
+      "code": "standard",
+      "label": "Standart Basvuru",
+      "requiredDocumentCodes": [
+        "tax_certificate",
+        "signature_circular",
+        "trade_registry_gazette",
+        "activity_certificate",
+        "identity_copy"
+      ]
+    },
+    {
+      "code": "tax_declaration",
+      "label": "Vergi Beyani",
+      "requiredDocumentCodes": [
+        "tax_certificate",
+        "tax_plate_previous_year",
+        "balance_sheet",
+        "income_statement",
+        "signature_circular"
+      ]
+    }
+  ],
   "documentRequirements": [
     {
       "code": "tax_certificate",

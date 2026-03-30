@@ -13,12 +13,18 @@ type TemplateDocumentOption = {
 type ChecklistItem = {
   code: string;
   label: string;
-  status: "PASS" | "MISSING";
+  status: "PASS" | "MISSING" | "NEEDS_REVIEW";
+  reason: string;
 };
 
 type ChecklistSummary = {
   case: { id: string; sector: string };
   template: { name: string; version: number };
+  profile?: {
+    code: string;
+    label: string;
+    options: Array<{ code: string; label: string; requiredDocumentCodes: string[] }>;
+  };
   requiredDocuments: ChecklistItem[];
   uploadedCount: number;
 };
@@ -63,6 +69,7 @@ export default function HomePage() {
   const [templateDocs, setTemplateDocs] = useState<TemplateDocumentOption[]>([]);
   const [checklistSummary, setChecklistSummary] =
     useState<ChecklistSummary | null>(null);
+  const [profileCode, setProfileCode] = useState("standard");
   const [documents, setDocuments] = useState<CaseDocument[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>("");
   const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
@@ -109,7 +116,7 @@ export default function HomePage() {
   async function loadChecklist(currentCaseId: string) {
     try {
       const res = await fetch(
-        `/api/cases/${encodeURIComponent(currentCaseId)}/checklist`
+        `/api/cases/${encodeURIComponent(currentCaseId)}/checklist?profile=${encodeURIComponent(profileCode)}`
       );
       if (!res.ok) {
         setChecklistSummary(null);
@@ -330,13 +337,22 @@ export default function HomePage() {
                         className={`badge rounded-pill ${
                           item.status === "PASS"
                             ? "text-bg-success"
+                            : item.status === "NEEDS_REVIEW"
+                              ? "text-bg-warning"
                             : "text-bg-danger"
                         }`}
                       >
-                        {item.status === "PASS" ? "Tamam" : "Eksik"}
+                        {item.status === "PASS"
+                          ? "Tamam"
+                          : item.status === "NEEDS_REVIEW"
+                            ? "Dogrulama Gerekli"
+                            : "Eksik"}
                       </span>
                     </div>
                   ))}
+                </div>
+                <div className="small netevrak-muted mt-2">
+                  Profil: {checklistSummary.profile?.label ?? "Standart Basvuru"}
                 </div>
               </div>
             ) : (
@@ -362,7 +378,7 @@ export default function HomePage() {
           <div>
             <div className="fw-semibold">Faz Durumu</div>
             <div className="small netevrak-muted">
-              Faz 0 (muhasebe matrisi), Faz 1 (teknik temel), Faz 2 (yukleme/siniflandirma) ve Faz 3 (ocr/extraction) MVP kapsaminda aktif.
+              Faz 0 (muhasebe matrisi), Faz 1 (teknik temel), Faz 2 (yukleme/siniflandirma), Faz 3 (ocr/extraction) ve Faz 4 (eksik belge motoru) MVP kapsaminda aktif.
             </div>
           </div>
           <div className="d-flex gap-2">
@@ -370,6 +386,7 @@ export default function HomePage() {
             <span className="badge text-bg-success rounded-pill">Faz 1 - Tamam</span>
             <span className="badge text-bg-success rounded-pill">Faz 2 - Tamam</span>
             <span className="badge text-bg-success rounded-pill">Faz 3 - Tamam</span>
+            <span className="badge text-bg-success rounded-pill">Faz 4 - Tamam</span>
           </div>
         </div>
       </div>
@@ -493,6 +510,34 @@ export default function HomePage() {
                         {doc.label}
                       </option>
                     ))}
+                  </select>
+                </div>
+                <div className="col-12 col-md-6">
+                  <label className="form-label fw-semibold">Basvuru Profili</label>
+                  <select
+                    className="form-select"
+                    value={profileCode}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setProfileCode(next);
+                      const id = caseId.trim();
+                      if (id) {
+                        void fetch(
+                          `/api/cases/${encodeURIComponent(id)}/checklist?profile=${encodeURIComponent(next)}`
+                        )
+                          .then((res) => (res.ok ? res.json() : null))
+                          .then((payload) => {
+                            if (payload?.ok) {
+                              setChecklistSummary(payload as ChecklistSummary & { ok: boolean });
+                            }
+                          })
+                          .catch(() => undefined);
+                      }
+                    }}
+                    disabled={loading}
+                  >
+                    <option value="standard">Standart Basvuru</option>
+                    <option value="tax_declaration">Vergi Beyani</option>
                   </select>
                 </div>
 
