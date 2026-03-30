@@ -1,0 +1,22 @@
+---
+description: Global development rules for the project
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+- Always preserve modular architecture.
+- Never place business logic inside UI components.
+- Always use TypeScript strict mode compatible code.
+- Always write explicit types for public functions.
+- Keep files small and focused.
+- Prefer server-side validation for every critical action.
+- Never hardcode document rules in page components.
+- Use service layer for workflows.
+- Use repository/db access layer for persistence.
+- Every async process must be retry-safe and idempotent.
+- Every important action must produce audit logs.
+- Favor readability over cleverness.
+- Do not introduce hidden side effects.
+- Before creating code, check whether shared utilities already exist.
+- Keep naming domain-driven and consistent.

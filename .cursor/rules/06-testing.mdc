@@ -1,0 +1,12 @@
+---
+description: Testing rules
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+- Write unit tests for services with business rules.
+- Write integration tests for upload, extraction, and checklist flows.
+- Add fixture files for supported document examples.
+- Cover happy path, invalid file, low-confidence, and missing-document scenarios.
+- Do not merge critical workflow code without tests.

@@ -1,0 +1,17 @@
+---
+description: Architecture rules
+globs:
+  - "apps/**/*"
+  - "packages/**/*"
+alwaysApply: true
+---
+
+- Follow feature-first architecture inside app source.
+- Shared primitives go into packages/shared.
+- UI primitives go into packages/ui.
+- Database schema and db utilities remain centralized.
+- Worker-only logic must never leak into web app UI layer.
+- API routes/controllers may orchestrate but not contain heavy business logic.
+- Business rules must live in services or domain modules.
+- External provider integrations must be wrapped behind adapters.
+- Checklist evaluation must be deterministic.

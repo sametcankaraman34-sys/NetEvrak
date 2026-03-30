@@ -1,0 +1,17 @@
+---
+description: AI and extraction rules
+globs:
+  - "apps/worker/src/**/*"
+  - "apps/web/src/features/extraction/**/*"
+  - "packages/rules/**/*"
+alwaysApply: true
+---
+
+- OCR output must never be trusted directly.
+- Normalize extracted values before validation.
+- Every extracted field must carry confidence metadata when available.
+- Low-confidence fields must be reviewable in UI.
+- Document classification and field extraction must be versioned.
+- Rules for missing documents must be configuration-driven.
+- Prefer deterministic post-processing over prompt-only behavior.
+- Keep provider-specific mapping isolated from domain logic.

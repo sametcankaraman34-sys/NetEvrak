@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+enum CaseStatus {
+  CREATED
+  PROCESSING
+  COMPLETED
+}
+
+enum DocumentStatus {
+  UPLOADED
+  PROCESSING
+  EXTRACTED
+  FAILED
+}
+
+enum CaseChecklistStatus {
+  PENDING
+  PASS
+  FAIL
+  NEEDS_REVIEW
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+  cases Case[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  email          String   @unique
+  role           UserRole
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  casesCreated Case[] @relation("CaseCreatedBy")
+  auditLogs     AuditLog[] @relation("AuditActor")
+  resolvedChecklistResults CaseChecklistResult[] @relation("ResolvedBy")
+}
+
+model Case {
+  id             String     @id @default(cuid())
+  organizationId String
+  title          String
+  sector         String
+  status         CaseStatus
+  createdById    String
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  createdBy     User         @relation("CaseCreatedBy", fields: [createdById], references: [id])
+
+  documents Document[]
+  checklistResults CaseChecklistResult[]
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model Document {
+  id            String   @id @default(cuid())
+  caseId        String
+  fileName      String
+  mimeType      String
+  storageKey    String
+  documentType  String
+  status        DocumentStatus
+  pageCount     Int
+  uploadedAt    DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id])
+  extractionResults ExtractionResult[]
+
+  @@index([caseId])
+  @@index([status])
+}
+
+model ExtractionResult {
+  id               String   @id @default(cuid())
+  documentId      String
+  provider        String
+  rawResponseJson Json
+  confidenceAvg   Float
+  processedAt     DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  extractedFields ExtractedField[]
+
+  @@index([documentId])
+}
+
+model ExtractedField {
+  id                 String   @id @default(cuid())
+  extractionResultId String
+  fieldKey           String
+  fieldLabel         String
+  fieldValue         String
+  normalizedValue    String
+  confidence         Float
+  isRequired         Boolean
+  isValid            Boolean
+  validationMessage  String
+
+  extractionResult ExtractionResult @relation(fields: [extractionResultId], references: [id], onDelete: Cascade)
+
+  @@index([extractionResultId])
+}
+
+model ChecklistTemplate {
+  id        String @id @default(cuid())
+  sector    String
+  name      String
+  version   Int
+  isActive  Boolean @default(true)
+
+  items ChecklistItem[]
+
+  @@unique([sector, name, version])
+  @@index([sector])
+}
+
+model ChecklistItem {
+  id             String @id @default(cuid())
+  templateId     String
+  code           String
+  label          String
+  ruleType       String
+  ruleConfigJson Json
+  sortOrder      Int
+  isRequired     Boolean @default(false)
+
+  template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  caseResults CaseChecklistResult[]
+
+  @@index([templateId])
+  @@unique([templateId, code])
+}
+
+model CaseChecklistResult {
+  id              String @id @default(cuid())
+  caseId          String
+  checklistItemId String
+  status          CaseChecklistStatus
+  message         String?
+  resolvedById    String?
+  resolvedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  case          Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  checklistItem ChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  resolvedBy    User?         @relation("ResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([caseId])
+  @@index([checklistItemId])
+  @@unique([caseId, checklistItemId])
+}
+
+model AuditLog {
+  id          String @id @default(cuid())
+  entityType  String
+  entityId    String
+  action      String
+  actorId     String?
+  payloadJson Json
+  createdAt   DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+}
+

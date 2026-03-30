@@ -1,0 +1,11 @@
+{
+  "name": "vertical-doc-control",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -C apps/web dev",
+    "build": "pnpm -C apps/web build"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.6.0"
+  }
+}

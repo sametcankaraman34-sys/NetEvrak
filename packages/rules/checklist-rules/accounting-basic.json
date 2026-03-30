@@ -1,0 +1,26 @@
+{
+  "sector": "accounting",
+  "templateName": "Accounting Basic",
+  "version": 1,
+  "documentRequirements": [
+    {
+      "code": "tax_certificate",
+      "label": "Vergi Levhası",
+      "required": true,
+      "rules": [
+        { "type": "document_exists" },
+        { "type": "field_required", "field": "tax_number" },
+        { "type": "field_required", "field": "company_name" }
+      ]
+    },
+    {
+      "code": "signature_circular",
+      "label": "İmza Sirküleri",
+      "required": true,
+      "rules": [
+        { "type": "document_exists" },
+        { "type": "field_required", "field": "authorized_person" }
+      ]
+    }
+  ]
+}

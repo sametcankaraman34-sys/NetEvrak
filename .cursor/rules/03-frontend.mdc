@@ -1,0 +1,16 @@
+---
+description: Frontend rules
+globs:
+  - "apps/web/src/components/**/*"
+  - "apps/web/src/app/**/*"
+alwaysApply: true
+---
+
+- Keep components presentational when possible.
+- Move data fetching to server components or dedicated hooks.
+- Use consistent loading, empty, and error states.
+- Never mix file upload logic with display-only components.
+- All tables and lists must support clear status indicators.
+- Use accessible form controls.
+- Use reusable status badges for document and checklist states.
+- Avoid deeply nested JSX.

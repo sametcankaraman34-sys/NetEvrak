@@ -1,0 +1,15 @@
+---
+description: Database and Prisma rules
+globs:
+  - "prisma/**/*"
+  - "packages/database/**/*"
+alwaysApply: true
+---
+
+- All schema changes must come with migrations.
+- Never delete production-relevant fields without a migration plan.
+- Prefer enums for stable domain statuses.
+- Store raw provider payloads in json fields when needed.
+- Add indexes for case_id, document_id, organization_id, and status fields.
+- Use created_at and updated_at consistently.
+- Avoid nullable fields unless the domain truly requires it.

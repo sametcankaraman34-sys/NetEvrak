@@ -1,0 +1,19 @@
+---
+description: Backend rules
+globs:
+  - "apps/web/src/app/api/**/*"
+  - "apps/web/src/features/**/*"
+  - "apps/worker/src/**/*"
+alwaysApply: true
+---
+
+- Validate every request payload with schema validation.
+- Use zod for input validation.
+- Return typed response objects.
+- Separate controller, service, and integration concerns.
+- Never call OCR providers directly from route handlers.
+- Long-running tasks must go through queue workers.
+- Normalize provider outputs before storing.
+- Persist raw provider responses for auditability.
+- Design all jobs to be idempotent.
+- Add structured logging for every failure path.

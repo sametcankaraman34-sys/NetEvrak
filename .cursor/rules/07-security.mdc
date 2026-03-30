@@ -1,0 +1,15 @@
+---
+description: Security rules
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+- Treat every uploaded file as untrusted input.
+- Validate mime type and extension.
+- Sanitize file names before persistence.
+- Enforce authorization on every case and document access.
+- Never expose raw storage keys publicly.
+- Sensitive extracted data must be masked in logs when necessary.
+- Secrets must only come from environment variables.
+- Signed URLs must be short-lived.
