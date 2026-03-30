@@ -9,6 +9,11 @@ type InMemoryDocument = {
   id: string;
   caseId: string;
   documentType: string;
+  fileName: string;
+  mimeType: string;
+  storageKey: string;
+  pageCount: number;
+  uploadedAt: string;
   status: "UPLOADED" | "PROCESSING" | "EXTRACTED" | "FAILED";
 };
 
@@ -47,6 +52,10 @@ export function getCaseInMemory(caseId: string): InMemoryCase | null {
 export function createDocumentInMemory(input: {
   caseId: string;
   documentType: string;
+  fileName: string;
+  mimeType: string;
+  storageKey: string;
+  pageCount: number;
 }): { id: string; status: InMemoryDocument["status"] } {
   const store = getStore();
   const id = randomUUID();
@@ -54,6 +63,11 @@ export function createDocumentInMemory(input: {
     id,
     caseId: input.caseId,
     documentType: input.documentType,
+    fileName: input.fileName,
+    mimeType: input.mimeType,
+    storageKey: input.storageKey,
+    pageCount: input.pageCount,
+    uploadedAt: new Date().toISOString(),
     status: "UPLOADED",
   };
   store.documents.set(id, doc);
@@ -67,6 +81,11 @@ export function getDocumentsByCaseIdInMemory(caseId: string): InMemoryDocument[]
 
 export function getDocumentTypesByCaseIdInMemory(caseId: string): string[] {
   return getDocumentsByCaseIdInMemory(caseId).map((d) => d.documentType);
+}
+
+export function getDocumentByIdInMemory(documentId: string): InMemoryDocument | null {
+  const store = getStore();
+  return store.documents.get(documentId) ?? null;
 }
 
 export function setDocumentStatusInMemory(

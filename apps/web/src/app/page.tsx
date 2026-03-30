@@ -23,16 +23,28 @@ type ChecklistSummary = {
   uploadedCount: number;
 };
 
+type CaseDocument = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  documentType: string;
+  status: "UPLOADED" | "PROCESSING" | "EXTRACTED" | "FAILED";
+  pageCount: number;
+  uploadedAt: string;
+  previewUrl: string;
+};
+
 export default function HomePage() {
   const [caseId, setCaseId] = useState("");
   const [documentType, setDocumentType] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<UiMessage | null>(null);
   const [lastDocumentId, setLastDocumentId] = useState<string | null>(null);
   const [templateDocs, setTemplateDocs] = useState<TemplateDocumentOption[]>([]);
   const [checklistSummary, setChecklistSummary] =
     useState<ChecklistSummary | null>(null);
+  const [documents, setDocuments] = useState<CaseDocument[]>([]);
 
   useEffect(() => {
     async function loadTemplate() {
@@ -62,8 +74,7 @@ export default function HomePage() {
         setTemplateDocs(options);
 
         if (options.length > 0) {
-          const firstRequired = options.find((d) => d.required)?.code ?? options[0].code;
-          setDocumentType(firstRequired);
+          setDocumentType("auto");
         }
       } catch {
         // Template yüklenemezse UI boş seçenekle kalır.
@@ -101,6 +112,29 @@ export default function HomePage() {
     }
   }
 
+  async function loadDocuments(currentCaseId: string) {
+    try {
+      const res = await fetch(
+        `/api/cases/${encodeURIComponent(currentCaseId)}/documents`
+      );
+      if (!res.ok) {
+        setDocuments([]);
+        return;
+      }
+
+      const data: unknown = await res.json();
+      const payload = data as { ok: boolean; documents: CaseDocument[] };
+      if (!payload.ok) {
+        setDocuments([]);
+        return;
+      }
+
+      setDocuments(payload.documents);
+    } catch {
+      setDocuments([]);
+    }
+  }
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
@@ -115,8 +149,8 @@ export default function HomePage() {
       setMessage({ type: "warning", text: "Belge Tipi zorunludur." });
       return;
     }
-    if (!file) {
-      setMessage({ type: "warning", text: "Lütfen bir dosya seçin." });
+    if (files.length === 0) {
+      setMessage({ type: "warning", text: "Lütfen en az bir dosya seçin." });
       return;
     }
 
@@ -124,34 +158,40 @@ export default function HomePage() {
     setMessage(null);
 
     try {
-      const formData = new FormData();
-      formData.append("caseId", trimmedCaseId);
-      formData.append("documentType", trimmedDocumentType);
-      formData.append("file", file);
+      let latestDocumentId: string | null = null;
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("caseId", trimmedCaseId);
+        formData.append("documentType", trimmedDocumentType);
+        formData.append("file", file);
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
 
-      const data: unknown = await res.json();
+        const data: unknown = await res.json();
 
-      if (!res.ok) {
-        const payload = data as { error?: string; details?: string };
-        const errorCode = payload.error ?? "UPLOAD_FAILED";
-        const details = payload.details ? ` - ${payload.details}` : "";
-        setMessage({ type: "danger", text: `${errorCode}${details}` });
-        return;
+        if (!res.ok) {
+          const payload = data as { error?: string; details?: string };
+          const errorCode = payload.error ?? "UPLOAD_FAILED";
+          const details = payload.details ? ` - ${payload.details}` : "";
+          setMessage({ type: "danger", text: `${errorCode}${details}` });
+          return;
+        }
+
+        const okPayload = data as { ok: true; documentId: string; status: string };
+        latestDocumentId = okPayload.documentId;
       }
 
-      const okPayload = data as { ok: true; documentId: string; status: string };
-      setLastDocumentId(okPayload.documentId);
+      setLastDocumentId(latestDocumentId);
       setMessage({
         type: "success",
-        text: `Yükleme tamamlandı. Durum: ${okPayload.status}`,
+        text: `${files.length} dosya yüklendi.`,
       });
 
       await loadChecklist(trimmedCaseId);
+      await loadDocuments(trimmedCaseId);
     } catch {
       setMessage({ type: "danger", text: "Sunucuya bağlanılamadı." });
     } finally {
@@ -384,6 +424,7 @@ export default function HomePage() {
                     onChange={(e) => setDocumentType(e.target.value)}
                     disabled={loading || templateDocs.length === 0}
                   >
+                    <option value="auto">Otomatik Siniflandir</option>
                     {templateDocs.map((doc) => (
                       <option key={doc.code} value={doc.code}>
                         {doc.label}
@@ -397,16 +438,17 @@ export default function HomePage() {
                   <input
                     className="form-control"
                     type="file"
+                    multiple
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={(e) => {
-                      const selected = e.target.files?.[0] ?? null;
-                      setFile(selected);
+                      const selected = Array.from(e.target.files ?? []);
+                      setFiles(selected);
                     }}
                     disabled={loading}
                   />
-                  {file ? (
+                  {files.length > 0 ? (
                     <div className="netevrak-muted small mt-1">
-                      Seçili: {file.name} ({Math.max(0, Math.round(file.size / 1024))} KB)
+                      {files.length} dosya seçildi.
                     </div>
                   ) : null}
                 </div>
@@ -431,8 +473,79 @@ export default function HomePage() {
             </form>
 
             <div className="mt-4 small netevrak-muted">
-              Kabul edilen formatlar: PDF, JPG, JPEG, PNG. Maksimum boyut: 20MB.
+              Kabul edilen formatlar: PDF, JPG, JPEG, PNG. Maksimum boyut: 100MB. Maksimum sayfa: 50.
             </div>
+
+            <hr className="my-4" />
+
+            <div className="d-flex align-items-center justify-content-between mb-2">
+              <div className="fw-semibold">Belge Durum Listesi</div>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary"
+                disabled={loading || !caseId.trim()}
+                onClick={() => {
+                  const id = caseId.trim();
+                  if (!id) return;
+                  void loadDocuments(id);
+                }}
+              >
+                Durumlari Yenile
+              </button>
+            </div>
+
+            {documents.length === 0 ? (
+              <div className="small netevrak-muted">Bu case icin belge kaydi yok.</div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Dosya</th>
+                      <th>Tip</th>
+                      <th>Sayfa</th>
+                      <th>Durum</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {documents.map((doc) => (
+                      <tr key={doc.id}>
+                        <td>{doc.fileName}</td>
+                        <td>{doc.documentType}</td>
+                        <td>{doc.pageCount}</td>
+                        <td>
+                          <span
+                            className={`badge rounded-pill ${
+                              doc.status === "EXTRACTED"
+                                ? "text-bg-success"
+                                : doc.status === "FAILED"
+                                  ? "text-bg-danger"
+                                  : "text-bg-warning"
+                            }`}
+                          >
+                            {doc.status}
+                          </span>
+                          <a
+                            href={doc.previewUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-link btn-sm ms-2 p-0"
+                          >
+                            Onizle
+                          </a>
+                          <a
+                            href={`/cases/${encodeURIComponent(caseId.trim() || "case_123")}/documents?documentId=${encodeURIComponent(doc.id)}`}
+                            className="btn btn-link btn-sm ms-2 p-0"
+                          >
+                            Ekranda Ac
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>

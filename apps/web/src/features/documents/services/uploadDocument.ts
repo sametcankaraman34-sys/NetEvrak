@@ -14,13 +14,14 @@ export async function uploadDocumentToCase(input: {
   originalFileName: string;
   mimeType: string;
   documentType: string;
+  pageCount: number;
 }): Promise<{ documentId: string; status: string }> {
   const prisma = getPrismaOrNull();
   const FIXED_SECTOR = "accounting";
 
   if (!prisma) {
     ensureCaseInMemory(input.caseId, FIXED_SECTOR);
-    await putFile({
+    const { storageKey } = await putFile({
       file: input.file,
       directory: "cases/documents",
       originalFileName: input.originalFileName,
@@ -29,6 +30,10 @@ export async function uploadDocumentToCase(input: {
     const created = createDocumentInMemory({
       caseId: input.caseId,
       documentType: input.documentType,
+      fileName: input.originalFileName,
+      mimeType: input.mimeType,
+      storageKey,
+      pageCount: input.pageCount,
     });
 
     const job = await enqueueExtractionJob({ documentId: created.id });
@@ -56,7 +61,7 @@ export async function uploadDocumentToCase(input: {
       storageKey,
       documentType: input.documentType,
       status: "UPLOADED",
-      pageCount: 0,
+      pageCount: input.pageCount,
     },
     select: { id: true, status: true, storageKey: true },
   });

@@ -38,3 +38,11 @@ export async function putLocalFile(input: {
   return { storageKey };
 }
 
+export function getLocalAbsolutePathFromStorageKey(storageKey: string): string {
+  const baseDir = process.env.UPLOAD_DIR ?? "uploads";
+  const absBaseDir = path.isAbsolute(baseDir)
+    ? baseDir
+    : path.join(process.cwd(), baseDir);
+  return path.join(absBaseDir, storageKey);
+}
+
