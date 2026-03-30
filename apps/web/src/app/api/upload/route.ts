@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { uploadRequestSchema } from "@/lib/validators/upload";
 import { uploadDocumentToCase } from "@/features/documents/services/uploadDocument";
+import { captureError } from "@/lib/monitoring";
 
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ...result }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
+    captureError(err, { route: "POST /api/upload" });
 
     if (message === "CASE_NOT_FOUND") {
       return NextResponse.json({ error: "CASE_NOT_FOUND" }, { status: 404 });

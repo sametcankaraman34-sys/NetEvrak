@@ -21,6 +21,66 @@
         { "type": "document_exists" },
         { "type": "field_required", "field": "authorized_person" }
       ]
+    },
+    {
+      "code": "trade_registry_gazette",
+      "label": "Ticaret Sicil Gazetesi",
+      "required": true,
+      "rules": [
+        { "type": "document_exists" },
+        { "type": "field_required", "field": "registry_number" },
+        { "type": "field_required", "field": "company_name" }
+      ]
+    },
+    {
+      "code": "activity_certificate",
+      "label": "Faaliyet Belgesi",
+      "required": true,
+      "rules": [
+        { "type": "document_exists" },
+        { "type": "field_required", "field": "chamber_name" },
+        { "type": "field_required", "field": "valid_until" }
+      ]
+    },
+    {
+      "code": "identity_copy",
+      "label": "Kimlik Fotokopisi",
+      "required": true,
+      "rules": [
+        { "type": "document_exists" },
+        { "type": "field_required", "field": "person_name" },
+        { "type": "field_required", "field": "identity_number" }
+      ]
+    },
+    {
+      "code": "tax_plate_previous_year",
+      "label": "Geçen Yıl Vergi Levhası",
+      "required": false,
+      "rules": [
+        { "type": "document_exists" },
+        { "type": "field_required", "field": "tax_number" },
+        { "type": "field_required", "field": "fiscal_year" }
+      ]
+    },
+    {
+      "code": "balance_sheet",
+      "label": "Bilanço",
+      "required": false,
+      "rules": [
+        { "type": "document_exists" },
+        { "type": "field_required", "field": "period" },
+        { "type": "field_required", "field": "total_assets" }
+      ]
+    },
+    {
+      "code": "income_statement",
+      "label": "Gelir Tablosu",
+      "required": false,
+      "rules": [
+        { "type": "document_exists" },
+        { "type": "field_required", "field": "period" },
+        { "type": "field_required", "field": "net_sales" }
+      ]
     }
   ]
 }

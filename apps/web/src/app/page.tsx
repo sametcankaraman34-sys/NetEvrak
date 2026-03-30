@@ -256,6 +256,21 @@ export default function HomePage() {
         </div>
       </div>
 
+      <div className="premium-card p-3 p-lg-4 mb-4">
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div>
+            <div className="fw-semibold">Faz Durumu</div>
+            <div className="small netevrak-muted">
+              Faz 0 (muhasebe matrisi) ve Faz 1 (teknik temel) MVP kapsaminda aktif.
+            </div>
+          </div>
+          <div className="d-flex gap-2">
+            <span className="badge text-bg-success rounded-pill">Faz 0 - Tamam</span>
+            <span className="badge text-bg-success rounded-pill">Faz 1 - Tamam</span>
+          </div>
+        </div>
+      </div>
+
       <div className="row g-4 align-items-stretch">
         <div className="col-12 col-lg-5">
           <div className="premium-card h-100 p-4 p-lg-5">

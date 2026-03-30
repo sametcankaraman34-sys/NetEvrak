@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getPrismaOrNull } from "@/lib/db/prisma";
 import { loadAccountingBasicTemplate } from "@/lib/rules/loadAccountingBasicTemplate";
+import { captureError } from "@/lib/monitoring";
 import {
   getCaseInMemory,
   getDocumentsByCaseIdInMemory,
@@ -93,6 +94,7 @@ export async function GET(
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
+    captureError(err, { route: "GET /api/cases/:caseId/checklist" });
     return NextResponse.json(
       { error: "CHECKLIST_FAILED", details: message },
       { status: 500 }
